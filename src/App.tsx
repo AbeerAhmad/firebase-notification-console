@@ -1,47 +1,30 @@
-// src/App.tsx
-import React, { useState, useEffect } from 'react';
-import { onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut as firebaseSignOut, User } from 'firebase/auth';
-import { auth, googleProvider } from './config/firebaseConfig';
-import NotificationButton from './components/NotificationButton';
-import NotificationList from './components/NotificationList';
+import React from "react";
+import { signInWithPopup } from "firebase/auth";
+import { auth, googleProvider } from "./config/firebaseConfig";
+import NotificationButton from "./components/NotificationButton";
+import AppBar from "./components/AppBar";
+import { Button } from "@nextui-org/react";
+import { useAuth } from "./components/context/AuthContext";
 
 const App: React.FC = () => {
-  const [user, setUser] = useState<User | null>(null);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, setUser);
-    return () => unsubscribe();
-  }, []);
+  const { currentUser } = useAuth();
 
   const signIn = async () => {
-try {
-  await signInWithPopup(auth, googleProvider);
-} catch (error) {
-  console.log("🚀 ~ signIn ~ error:", error)
-  
-}
-  };
-
-  const signOut = async () => {
-    await firebaseSignOut(auth);
+    await signInWithPopup(auth, googleProvider);
   };
 
   return (
-    <div className="App">
-      <header>
-        <h1>Firebase Notifications</h1>
-        {user ? (
-          <button onClick={signOut}>Sign Out</button>
+    <div>
+      <AppBar />
+      <div className="flex justify-center items-center min-h-96">
+        {!currentUser ? (
+          <Button onClick={signIn} variant="solid">
+            Sign In
+          </Button>
         ) : (
-          <button onClick={signIn}>Sign In</button>
+          <NotificationButton />
         )}
-      </header>
-      {user && (
-        <>
-          <NotificationButton user={user} />
-          <NotificationList user={user} />
-        </>
-      )}
+      </div>
     </div>
   );
 };

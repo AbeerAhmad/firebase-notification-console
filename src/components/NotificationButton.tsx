@@ -1,32 +1,40 @@
-// src/NotificationButton.tsx
-import React from 'react';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
-import { User } from 'firebase/auth';
-import { firestore } from '../config/firebaseConfig';
+import { Button } from "@nextui-org/react";
+import { addDataToCollection } from "../common/firestore";
+import { useAuth } from "./context/AuthContext";
 
-interface NotificationButtonProps {
-  user: User;
-}
-
-const NotificationButton: React.FC<NotificationButtonProps> = ({ user }) => {
-    const sendNotification = async (message: string) => {
-        try {
-          await addDoc(collection(firestore, 'notifications'), {
-            message,
-            userId: user.uid,
-            read: false,
-            createdAt: serverTimestamp(),
-          });
-        } catch (error) {
-          console.error('Error adding document: ', error);
-        }
-      };
+const NotificationButton = () => {
+  const { currentUser } = useAuth();
+  const sendNotification = async (message: string) => {
+    return await addDataToCollection({
+      collectionName: "notifications",
+      data: {
+        message,
+        userId: currentUser?.uid,
+        read: false,
+      },
+    });
+  };
 
   return (
-    <div>
-      <button onClick={() => sendNotification('Notification 1')}>Notify 1</button>
-      <button onClick={() => sendNotification('Notification 2')}>Notify 2</button>
-      <button onClick={() => sendNotification('Notification 3')}>Notify 3</button>
+    <div className="flex gap-2">
+      <Button
+        onClick={() => sendNotification("Notification 1")}
+        color="primary"
+      >
+        Notify 1
+      </Button>
+      <Button
+        onClick={() => sendNotification("Notification 2")}
+        color="secondary"
+      >
+        Notify 2
+      </Button>
+      <Button
+        onClick={() => sendNotification("Notification 3")}
+        color="warning"
+      >
+        Notify 3
+      </Button>
     </div>
   );
 };

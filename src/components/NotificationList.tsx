@@ -1,12 +1,16 @@
-// src/NotificationList.tsx
-import React, { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, onSnapshot, updateDoc, doc, Timestamp } from 'firebase/firestore';
-import { firestore } from '../config/firebaseConfig';
-import { User } from 'firebase/auth';
-
-interface NotificationListProps {
-  user: User;
-}
+import { useState, useEffect, useMemo } from "react";
+import { where, orderBy, Timestamp } from "firebase/firestore";
+import { firestore } from "../config/firebaseConfig";
+import {
+  Badge,
+  Dropdown,
+  DropdownItem,
+  DropdownMenu,
+  DropdownTrigger,
+} from "@nextui-org/react";
+import { snapshotListener, updateDocument } from "../common/firestore";
+import { useAuth } from "./context/AuthContext";
+import { NotificationIcon } from "./svgs/NotificationIcon";
 
 interface Notification {
   id: string;
@@ -15,49 +19,65 @@ interface Notification {
   createdAt: Timestamp;
 }
 
-const NotificationList: React.FC<NotificationListProps> = ({ user }) => {
+const NotificationList = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const { currentUser } = useAuth();
+  const unread = useMemo(
+    () => notifications?.filter((item) => !item?.read),
+    [notifications]
+  );
 
   useEffect(() => {
-    if (!user || !user.uid) return;
-    
-    const q = query(
-      collection(firestore, 'notifications'),
-      where('userId', '==', user.uid),
-      orderBy('createdAt', 'desc')
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const newNotifications = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Notification[];
-      setNotifications(newNotifications);
+    if (!currentUser || !currentUser?.uid) return;
+    const unsubscribe = snapshotListener({
+      collectionName: "notifications",
+      queryConstraints: [
+        where("userId", "==", currentUser?.uid),
+        orderBy("createdAt", "desc"),
+      ],
+      onSnapshotCallback: (data) => {
+        setNotifications(data as Notification[]);
+      },
     });
+    return () => unsubscribe && unsubscribe();
+  }, [firestore, currentUser]);
 
-    return () => unsubscribe();
-  }, [user]);
-
-  const markAsRead = async (id: string) => {
+  const markAsRead = async () => {
     try {
-      const notificationRef = doc(firestore, 'notifications', id);
-      await updateDoc(notificationRef, { read: true });
+      unread.forEach(async (element) => {
+        await updateDocument({
+          collectionName: "notifications",
+          id: element?.id,
+          data: { read: true },
+        });
+      });
     } catch (error) {
-      console.error('Error updating document: ', error);
+      console.error("Error updating document: ", error);
     }
   };
-
   return (
-    <ul>
-      {notifications.map((notification) => (
-        <li key={notification.id}>
-          <span>{notification.message}</span>
-          {!notification?.read && (
-              <button onClick={() => markAsRead(notification.id)}>Mark as Read</button>
+    <Dropdown placement="bottom-end">
+      <DropdownTrigger onClick={markAsRead}>
+        <div>
+          {unread?.length ? (
+            <Badge color="danger" content={unread?.length} shape="circle">
+              <NotificationIcon className="fill-current" size={30} />
+            </Badge>
+          ) : (
+            <NotificationIcon className="fill-current" size={30} />
           )}
-        </li>
-      ))}
-    </ul>
+        </div>
+      </DropdownTrigger>
+      <DropdownMenu aria-label="Profile Actions" variant="flat">
+        {notifications?.map((item) => {
+          return (
+            <DropdownItem key="logout" color="danger">
+              {item.message}
+            </DropdownItem>
+          );
+        })}
+      </DropdownMenu>
+    </Dropdown>
   );
 };
 
